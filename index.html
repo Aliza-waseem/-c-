@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gesture Control System – Camera Studio</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f1a;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #a78bfa, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: #888; margin-bottom: 24px; font-size: 0.9rem; }
+
+    /* ── Card ── */
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 900px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .card-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #a78bfa, #ec4899);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+    }
+    .card-title { font-size: 1.3rem; font-weight: 600; }
+    .card-desc { font-size: 0.82rem; color: #888; margin-top: 2px; }
+
+    /* ── Layout ── */
+    .studio-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 700px) { .studio-layout { grid-template-columns: 1fr; } }
+
+    /* ── Camera Panel ── */
+    .camera-panel { position: relative; }
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 4/3;
+    }
+    #videoEl {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: block;
+    }
+    #outputCanvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    #gestureOverlay {
+      position: absolute; inset: 0;
+      pointer-events: none;
+    }
+
+    /* ── Filter Badge ── */
+    #filterBadge {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+      backdrop-filter: blur(6px);
+      transition: all 0.3s ease;
+      z-index: 10;
+    }
+
+    /* ── Gesture Status ── */
+    #gestureStatus {
+      position: absolute;
+      bottom: 10px; left: 0; right: 0;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 1px 4px #000;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 0.3s;
+    }
+
+    /* ── Start / Stop Button ── */
+    #toggleBtn {
+      margin-top: 12px;
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #a78bfa, #ec4899);
+      color: #fff;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    #toggleBtn:hover { opacity: 0.9; }
+    #toggleBtn:active { transform: scale(0.98); }
+
+    /* ── Filter Strip ── */
+    .filter-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .filter-btn {
+      flex: 1 1 auto;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid #2a2a4a;
+      background: #12122a;
+      color: #ccc;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .filter-btn.active {
+      background: linear-gradient(135deg, #a78bfa, #ec4899);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 2px 10px rgba(167,139,250,0.4);
+    }
+    .filter-btn:hover:not(.active) { border-color: #a78bfa; color: #fff; }
+
+    /* ── Right Panel ── */
+    .right-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Photo Preview ── */
+    .photo-section {
+      flex: 1;
+      background: #12122a;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a78bfa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      align-self: flex-start;
+    }
+    #photoPreview {
+      width: 100%;
+      aspect-ratio: 4/3;
+      border-radius: 10px;
+      background: #0a0a18;
+      border: 2px dashed #2a2a4a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    #photoPreview .placeholder {
+      text-align: center;
+      color: #555;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    #photoPreview .placeholder span { font-size: 2rem; display: block; margin-bottom: 6px; }
+    #capturedImg {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+      display: none;
+    }
+    #flashOverlay {
+      position: absolute; inset: 0;
+      background: #fff;
+      opacity: 0;
+      border-radius: 8px;
+      pointer-events: none;
+      transition: opacity 0.1s;
+    }
+
+    #downloadBtn {
+      display: none;
+      margin-top: 10px;
+      width: 100%;
+      padding: 9px;
+      border-radius: 9px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      transition: opacity 0.2s;
+    }
+    #downloadBtn:hover { opacity: 0.9; }
+
+    /* ── Gesture Guide ── */
+    .gesture-guide {
+      background: #12122a;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .gesture-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid #1e1e3a;
+      font-size: 0.83rem;
+    }
+    .gesture-row:last-child { border-bottom: none; }
+    .gesture-emoji { font-size: 1.4rem; min-width: 30px; text-align: center; }
+    .gesture-desc { color: #bbb; }
+    .gesture-label { color: #a78bfa; font-weight: 600; font-size: 0.78rem; }
+
+    /* ── Status Bar ── */
+    #statusBar {
+      margin-top: 20px;
+      width: 100%;
+      max-width: 900px;
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.82rem;
+      color: #888;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #444;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-dot.active { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+
+    /* ── Loading ── */
+    #loadingMsg {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+    .spinner {
+      width: 46px; height: 46px;
+      border: 4px solid #2a2a4a;
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Flash Animation ── */
+    @keyframes flashAnim {
+      0%   { opacity: 0; }
+      20%  { opacity: 0.85; }
+      100% { opacity: 0; }
+    }
+    .do-flash { animation: flashAnim 0.45s ease-out forwards !important; }
+  </style>
+</head>
+<body>
+
+<div id="loadingMsg">
+  <div class="spinner"></div>
+  <p style="color:#ccc; font-size:0.95rem;">Loading hand-tracking model…</p>
+</div>
+
+<h1>✋ Gesture Control System</h1>
+<p class="subtitle">Control your camera with hand gestures – no touching required</p>
+
+<!-- ── Camera Studio Card ── -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-icon">📷</div>
+    <div>
+      <div class="card-title">Camera Studio</div>
+      <div class="card-desc">Gesture-controlled photo capture &amp; live filters</div>
+    </div>
+  </div>
+
+  <div class="studio-layout">
+
+    <!-- Left: live camera -->
+    <div class="camera-panel">
+      <div class="canvas-wrapper">
+        <video id="videoEl" autoplay playsinline muted></video>
+        <canvas id="outputCanvas"></canvas>
+        <canvas id="gestureOverlay"></canvas>
+        <div id="filterBadge">✨ Original</div>
+        <div id="gestureStatus"></div>
+      </div>
+
+      <button id="toggleBtn" onclick="toggleCamera()">▶ Start Camera</button>
+
+      <!-- Filter buttons -->
+      <div class="filter-strip" id="filterStrip"></div>
+    </div>
+
+    <!-- Right: photo preview + guide -->
+    <div class="right-panel">
+
+      <div class="photo-section">
+        <div class="section-title">📸 Captured Photo</div>
+        <div id="photoPreview">
+          <div class="placeholder">
+            <span>✌️</span>
+            Make a Peace Sign<br/>to capture a photo
+          </div>
+          <img id="capturedImg" alt="Captured photo" />
+          <div id="flashOverlay"></div>
+        </div>
+        <button id="downloadBtn" onclick="downloadPhoto()">⬇ Download Photo</button>
+      </div>
+
+      <div class="gesture-guide">
+        <div class="section-title">🎮 Gesture Guide</div>
+        <div class="gesture-row">
+          <span class="gesture-emoji">✌️</span>
+          <div>
+            <div class="gesture-label">SNAP PHOTO</div>
+            <div class="gesture-desc">Hold Peace Sign to capture</div>
+          </div>
+        </div>
+        <div class="gesture-row">
+          <span class="gesture-emoji">🖐️</span>
+          <div>
+            <div class="gesture-label">NEXT FILTER</div>
+            <div class="gesture-desc">Open Palm to cycle filters</div>
+          </div>
+        </div>
+        <div class="gesture-row">
+          <span class="gesture-emoji">👍</span>
+          <div>
+            <div class="gesture-label">RESET FILTER</div>
+            <div class="gesture-desc">Thumbs Up resets to original</div>
+          </div>
+        </div>
+        <div class="gesture-row">
+          <span class="gesture-emoji">✊</span>
+          <div>
+            <div class="gesture-label">PAUSE / RESUME</div>
+            <div class="gesture-desc">Fist to toggle feed pause</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div id="statusBar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusText">Camera not started. Click "Start Camera" to begin.</span>
+</div>
+
+<!--
+  MediaPipe via CDN.
+  NOTE: Add `integrity="sha384-..."` SRI hashes here for production deployments
+  to guard against CDN compromise (compute with: openssl dgst -sha384 -binary <file> | openssl base64 -A).
+-->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+<script>
+"use strict";
+
+// ── Module State ──────────────────────────────────────────────────────────────
+const moduleStates = {
+  camera: {
+    active: false,
+    paused: false,
+    lastPhotoSrc: null,
+    activeFilterIndex: 0,
+    filterTransitionAlpha: 1,
+    gestureHoldFrames: 0,
+    lastGesture: null,
+    gestureCooldown: 0,
+    filters: [
+      {
+        name: "✨ Original",
+        id: "original",
+        apply: (ctx, w, h) => {
+          /* no-op – raw video already drawn */
+        }
+      },
+      {
+        name: "🌑 Grayscale",
+        id: "grayscale",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+            d[i] = d[i+1] = d[i+2] = g;
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+      },
+      {
+        name: "🟤 Sepia",
+        id: "sepia",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i+1], b = d[i+2];
+            d[i]   = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
+            d[i+1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
+            d[i+2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+      },
+      {
+        name: "💚 Neon",
+        id: "neon",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i+1], b = d[i+2];
+            // Edge-detect style: boost green, dampen red/blue
+            d[i]   = Math.min(255, r * 0.2);
+            d[i+1] = Math.min(255, g * 1.6 + 40);
+            d[i+2] = Math.min(255, b * 0.3 + 20);
+          }
+          ctx.putImageData(img, 0, 0);
+          // Bloom glow overlay
+          ctx.globalCompositeOperation = "screen";
+          ctx.filter = "blur(4px)";
+          ctx.drawImage(ctx.canvas, 0, 0);
+          ctx.filter = "none";
+          ctx.globalCompositeOperation = "source-over";
+        }
+      },
+      {
+        name: "🔵 Cool Blue",
+        id: "coolblue",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            d[i]   = Math.min(255, d[i]   * 0.6);
+            d[i+1] = Math.min(255, d[i+1] * 0.8);
+            d[i+2] = Math.min(255, d[i+2] * 1.5 + 30);
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+      },
+      {
+        name: "🔴 Warm Glow",
+        id: "warmglow",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            d[i]   = Math.min(255, d[i]   * 1.4 + 30);
+            d[i+1] = Math.min(255, d[i+1] * 0.9);
+            d[i+2] = Math.min(255, d[i+2] * 0.5);
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+      },
+      {
+        name: "🌈 Vivid",
+        id: "vivid",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            // Boost saturation
+            const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+            d[i]   = Math.min(255, avg + (d[i]   - avg) * 2.2);
+            d[i+1] = Math.min(255, avg + (d[i+1] - avg) * 2.2);
+            d[i+2] = Math.min(255, avg + (d[i+2] - avg) * 2.2);
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+      },
+      {
+        name: "🎞️ Vintage",
+        id: "vintage",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i+1], b = d[i+2];
+            d[i]   = Math.min(255, r * 0.8 + 40);
+            d[i+1] = Math.min(255, g * 0.75 + 30);
+            d[i+2] = Math.min(255, b * 0.6 + 20);
+          }
+          ctx.putImageData(img, 0, 0);
+          // Vignette
+          const grad = ctx.createRadialGradient(w/2, h/2, h*0.3, w/2, h/2, h*0.85);
+          grad.addColorStop(0, "rgba(0,0,0,0)");
+          grad.addColorStop(1, "rgba(0,0,0,0.55)");
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+        }
+      },
+      {
+        name: "🌸 Blush",
+        id: "blush",
+        apply: (ctx, w, h) => {
+          const img = ctx.getImageData(0, 0, w, h);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            d[i]   = Math.min(255, d[i]   * 1.2 + 20);
+            d[i+1] = Math.min(255, d[i+1] * 0.9 + 15);
+            d[i+2] = Math.min(255, d[i+2] * 1.05 + 25);
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+      }
+    ]
+  }
+};
+
+// ── Timing / Threshold Constants ─────────────────────────────────────────────
+const SNAP_COOLDOWN_MS          = 2000; // ms between successive photo captures
+const PALM_COOLDOWN_MS          = 1200; // ms between successive filter cycles
+const FIST_COOLDOWN_MS          = 1000; // ms between pause/resume toggles
+const PEACE_HOLD_FRAMES_REQUIRED = 20;  // frames peace sign must be held before snap
+const PALM_STATUS_DISPLAY_FRAMES = 5;   // frames before hiding "Next Filter" status
+const LOADING_FADE_DELAY_MS     = 600;  // ms after page load before hiding spinner
+const LOADING_TIMEOUT_MS        = 8000; // max ms before forcing loader hidden
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const videoEl        = document.getElementById("videoEl");
+const outputCanvas   = document.getElementById("outputCanvas");
+const gestureOverlay = document.getElementById("gestureOverlay");
+const filterBadge    = document.getElementById("filterBadge");
+const gestureStatus  = document.getElementById("gestureStatus");
+const toggleBtn      = document.getElementById("toggleBtn");
+const photoPreview   = document.getElementById("photoPreview");
+const capturedImg    = document.getElementById("capturedImg");
+const flashOverlay   = document.getElementById("flashOverlay");
+const downloadBtn    = document.getElementById("downloadBtn");
+const statusDot      = document.getElementById("statusDot");
+const statusText     = document.getElementById("statusText");
+const filterStrip    = document.getElementById("filterStrip");
+const loadingMsg     = document.getElementById("loadingMsg");
+
+const outCtx  = outputCanvas.getContext("2d", { willReadFrequently: true });
+const gestCtx = gestureOverlay.getContext("2d");
+
+// ── Build filter buttons ──────────────────────────────────────────────────────
+moduleStates.camera.filters.forEach((f, idx) => {
+  const btn = document.createElement("button");
+  btn.className = "filter-btn" + (idx === 0 ? " active" : "");
+  btn.textContent = f.name;
+  btn.dataset.index = idx;
+  btn.onclick = () => setFilter(idx);
+  filterStrip.appendChild(btn);
+});
+
+// ── MediaPipe Hands ───────────────────────────────────────────────────────────
+let hands = null;
+let mpCamera = null;
+let handResults = null;
+
+function initHands() {
+  hands = new Hands({
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.6
+  });
+  hands.onResults(onHandResults);
+}
+
+// ── Camera control ────────────────────────────────────────────────────────────
+let cameraStream = null;
+
+async function startCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+      audio: false
+    });
+    videoEl.srcObject = cameraStream;
+    await videoEl.play();
+
+    // Size canvases to match video
+    videoEl.addEventListener("loadedmetadata", () => {
+      const w = videoEl.videoWidth  || 640;
+      const h = videoEl.videoHeight || 480;
+      outputCanvas.width   = w; outputCanvas.height   = h;
+      gestureOverlay.width = w; gestureOverlay.height = h;
+    }, { once: true });
+
+    initHands();
+
+    mpCamera = new Camera(videoEl, {
+      onFrame: async () => {
+        if (!moduleStates.camera.active) return;
+        if (hands) await hands.send({ image: videoEl });
+      },
+      width: 640, height: 480
+    });
+    mpCamera.start();
+
+    moduleStates.camera.active = true;
+    toggleBtn.textContent = "⏹ Stop Camera";
+    setStatus(true, "Camera active – gesture away!");
+  } catch (err) {
+    setStatus(false, "Camera error: " + err.message);
+    console.error(err);
+  }
+}
+
+function stopCamera() {
+  moduleStates.camera.active = false;
+  if (mpCamera) { mpCamera.stop(); mpCamera = null; }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  if (hands) { hands.close(); hands = null; }
+  outCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+  gestCtx.clearRect(0, 0, gestureOverlay.width, gestureOverlay.height);
+  filterBadge.textContent = moduleStates.camera.filters[moduleStates.camera.activeFilterIndex].name;
+  toggleBtn.textContent = "▶ Start Camera";
+  setStatus(false, "Camera stopped.");
+}
+
+function toggleCamera() {
+  if (moduleStates.camera.active) stopCamera();
+  else startCamera();
+}
+
+// ── Filter Management ─────────────────────────────────────────────────────────
+function setFilter(idx, announce = true) {
+  const cam = moduleStates.camera;
+  if (idx === cam.activeFilterIndex) return;
+  cam.activeFilterIndex = idx;
+  filterBadge.textContent = cam.filters[idx].name;
+
+  // Update button strip
+  document.querySelectorAll(".filter-btn").forEach((btn, i) => {
+    btn.classList.toggle("active", i === idx);
+  });
+
+  if (announce) showGestureStatus("Filter: " + cam.filters[idx].name, "#a78bfa");
+}
+
+function cycleFilter() {
+  const cam = moduleStates.camera;
+  const next = (cam.activeFilterIndex + 1) % cam.filters.length;
+  setFilter(next);
+}
+
+function resetFilter() {
+  setFilter(0);
+}
+
+// ── Photo Capture ─────────────────────────────────────────────────────────────
+function snapPhoto() {
+  if (!moduleStates.camera.active) return;
+
+  // Grab the current filtered frame from outputCanvas
+  const snapCanvas = document.createElement("canvas");
+  snapCanvas.width  = outputCanvas.width;
+  snapCanvas.height = outputCanvas.height;
+  const snapCtx = snapCanvas.getContext("2d");
+
+  // Mirror-flip to match what the user sees (canvas is CSS-flipped)
+  snapCtx.translate(snapCanvas.width, 0);
+  snapCtx.scale(-1, 1);
+  snapCtx.drawImage(outputCanvas, 0, 0);
+
+  const dataUrl = snapCanvas.toDataURL("image/png");
+  moduleStates.camera.lastPhotoSrc = dataUrl;
+
+  // ── Update UI ──
+  const placeholder = photoPreview.querySelector(".placeholder");
+  if (placeholder) placeholder.style.display = "none";
+
+  capturedImg.src = dataUrl;
+  capturedImg.style.display = "block";
+  downloadBtn.style.display = "block";
+
+  // Flash animation
+  flashOverlay.classList.remove("do-flash");
+  void flashOverlay.offsetWidth; // reflow to restart animation
+  flashOverlay.classList.add("do-flash");
+
+  showGestureStatus("📸 Photo Captured!", "#22c55e");
+  setStatus(true, "Photo captured! ✅");
+}
+
+function downloadPhoto() {
+  if (!moduleStates.camera.lastPhotoSrc) return;
+  const a = document.createElement("a");
+  a.href     = moduleStates.camera.lastPhotoSrc;
+  a.download = `gesture-studio-${Date.now()}.png`;
+  a.click();
+}
+
+// ── Gesture Detection ─────────────────────────────────────────────────────────
+const GESTURES = {
+  PEACE:    "peace",
+  OPEN_PALM:"open_palm",
+  THUMBS_UP:"thumbs_up",
+  FIST:     "fist",
+  NONE:     "none"
+};
+
+function detectGesture(landmarks) {
+  if (!landmarks || landmarks.length === 0) return GESTURES.NONE;
+
+  const lm = landmarks;
+  // Finger tips: 4=thumb, 8=index, 12=middle, 16=ring, 20=pinky
+  // Finger MCP:  2=thumb, 5=index, 9=middle, 13=ring, 17=pinky
+  // Wrist: 0
+
+  // Helper: is finger extended? tip y < pip y (image coords)
+  const isExtended = (tip, pip) => lm[tip].y < lm[pip].y;
+
+  const indexUp  = isExtended(8,  6);
+  const middleUp = isExtended(12, 10);
+  const ringDown = !isExtended(16, 14);
+  const pinkyDown= !isExtended(20, 18);
+  const thumbUp  = lm[4].x < lm[3].x; // for right hand mirrored
+
+  // Peace sign: index + middle up, ring + pinky down
+  if (indexUp && middleUp && ringDown && pinkyDown && !thumbUp) {
+    return GESTURES.PEACE;
+  }
+
+  // Open Palm: all 4 fingers up
+  if (indexUp && middleUp && isExtended(16,14) && isExtended(20,18)) {
+    return GESTURES.OPEN_PALM;
+  }
+
+  // Thumbs up: thumb extended, all fingers closed
+  if (thumbUp && !indexUp && !middleUp) {
+    return GESTURES.THUMBS_UP;
+  }
+
+  // Fist: all fingers closed
+  if (!indexUp && !middleUp && !isExtended(16,14) && !isExtended(20,18)) {
+    return GESTURES.FIST;
+  }
+
+  return GESTURES.NONE;
+}
+
+// ── Main Hand Results Handler ─────────────────────────────────────────────────
+let lastSnapTime = 0;
+let lastPalmTime = 0;
+let lastFistTime = 0;
+
+function onHandResults(results) {
+  handResults = results;
+
+  const w = outputCanvas.width  || 640;
+  const h = outputCanvas.height || 480;
+
+  // ── 1. Draw raw video to outputCanvas ──
+  outCtx.clearRect(0, 0, w, h);
+  if (results.image) {
+    outCtx.drawImage(results.image, 0, 0, w, h);
+  }
+
+  // ── 2. Apply active filter ──
+  const cam = moduleStates.camera;
+  if (!cam.paused) {
+    const filter = cam.filters[cam.activeFilterIndex];
+    if (filter && filter.id !== "original") {
+      filter.apply(outCtx, w, h);
+    }
+  }
+
+  // ── 3. Draw hand landmarks on gesture overlay ──
+  gestCtx.clearRect(0, 0, w, h);
+  if (results.multiHandLandmarks) {
+    for (const landmarks of results.multiHandLandmarks) {
+      drawHandSkeleton(gestCtx, landmarks, w, h);
+    }
+  }
+
+  // ── 4. Gesture recognition ──
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    // No hands detected
+    if (cam.gestureHoldFrames > 0) cam.gestureHoldFrames = 0;
+    return;
+  }
+
+  const landmarks = results.multiHandLandmarks[0];
+  const gesture   = detectGesture(landmarks);
+  const now = Date.now();
+
+  processCameraModule(gesture, now);
+}
+
+function processCameraModule(gesture, now) {
+  const cam = moduleStates.camera;
+
+  // Track gesture continuity
+  if (gesture === cam.lastGesture) {
+    cam.gestureHoldFrames++;
+  } else {
+    cam.gestureHoldFrames = 1;
+    cam.lastGesture = gesture;
+  }
+
+  const holdFrames = cam.gestureHoldFrames;
+
+  switch (gesture) {
+    case GESTURES.PEACE:
+      // Show countdown feedback, snap after holding ~20 frames
+      if (holdFrames < PEACE_HOLD_FRAMES_REQUIRED) {
+        const progress = Math.round((holdFrames / PEACE_HOLD_FRAMES_REQUIRED) * 100);
+        showGestureStatus(`✌️ Hold… ${progress}%`, "#facc15");
+      } else if (now - lastSnapTime > SNAP_COOLDOWN_MS) {
+        lastSnapTime = now;
+        cam.gestureHoldFrames = 0;
+        snapPhoto();
+      }
+      break;
+
+    case GESTURES.OPEN_PALM:
+      if (holdFrames === 1 && now - lastPalmTime > PALM_COOLDOWN_MS) {
+        lastPalmTime = now;
+        cycleFilter();
+      } else if (holdFrames < PALM_STATUS_DISPLAY_FRAMES) {
+        showGestureStatus("🖐️ Next Filter", "#a78bfa");
+      }
+      break;
+
+    case GESTURES.THUMBS_UP:
+      if (holdFrames === 1) {
+        resetFilter();
+        showGestureStatus("👍 Filter Reset", "#22c55e");
+      }
+      break;
+
+    case GESTURES.FIST:
+      if (holdFrames === 1 && now - lastFistTime > FIST_COOLDOWN_MS) {
+        lastFistTime = now;
+        cam.paused = !cam.paused;
+        showGestureStatus(cam.paused ? "✊ Feed Paused" : "✊ Feed Resumed", "#f97316");
+      }
+      break;
+
+    default:
+      // Clear status naturally
+      break;
+  }
+}
+
+// ── Hand Skeleton Drawing ─────────────────────────────────────────────────────
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],          // thumb
+  [5,6],[6,7],[7,8],                 // index
+  [9,10],[10,11],[11,12],            // middle
+  [13,14],[14,15],[15,16],           // ring
+  [17,18],[18,19],[19,20],           // pinky
+  [0,5],[5,9],[9,13],[13,17],[0,17]  // palm
+];
+
+function drawHandSkeleton(ctx, landmarks, w, h) {
+  // Draw connections
+  ctx.lineWidth   = 2;
+  ctx.strokeStyle = "rgba(167,139,250,0.8)";
+  ctx.lineJoin    = "round";
+  ctx.lineCap     = "round";
+  ctx.beginPath();
+  for (const [a, b] of HAND_CONNECTIONS) {
+    ctx.moveTo(landmarks[a].x * w, landmarks[a].y * h);
+    ctx.lineTo(landmarks[b].x * w, landmarks[b].y * h);
+  }
+  ctx.stroke();
+
+  // Draw joint dots
+  for (const lm of landmarks) {
+    const x = lm.x * w, y = lm.y * h;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#ec4899";
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+// ── UI Helpers ────────────────────────────────────────────────────────────────
+let gestureStatusTimer = null;
+
+function showGestureStatus(text, color = "#fff") {
+  gestureStatus.textContent = text;
+  gestureStatus.style.color = color;
+  gestureStatus.style.opacity = "1";
+  clearTimeout(gestureStatusTimer);
+  gestureStatusTimer = setTimeout(() => {
+    gestureStatus.style.opacity = "0";
+  }, 1800);
+}
+
+function setStatus(active, text) {
+  statusDot.classList.toggle("active", active);
+  statusText.textContent = text;
+}
+
+// ── Hide loader once MediaPipe is available ───────────────────────────────────
+window.addEventListener("load", () => {
+  // Give scripts a moment to initialise
+  setTimeout(() => {
+    loadingMsg.style.display = "none";
+  }, LOADING_FADE_DELAY_MS);
+});
+
+// Safety: hide loader if it stalls
+setTimeout(() => { loadingMsg.style.display = "none"; }, LOADING_TIMEOUT_MS);
+</script>
+</body>
+</html>
