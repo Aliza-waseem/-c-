@@ -5,6 +5,9 @@ This repository contains two projects:
 1. **Camera Studio** (`index.html`) — a gesture-controlled web app with live filters and photo capture.  
 2. **PsychePulse** (`programng project.cpp`) — a C++ terminal personality quiz.
 
+> **⚡ Quickest way to see it:** Download the ZIP → double-click `index.html` → click **▶ Start Camera**.  
+> Or enable GitHub Pages at **Settings → Pages → main → / (root)** to get a live link at `https://aliza-waseem.github.io/-c-/`
+
 ---
 
 ## 📷 How to See the Camera Studio (index.html)
@@ -104,6 +107,48 @@ quiz.exe        # Windows
 
 1. Answer **8 questions** on a scale of 1–5.
 2. The program analyses your answers and prints a personality report showing your **type**, **strengths**, and **weaknesses**.
+
+### 📋 Sample Output
+
+```
+*****Welcome to PsychePulse - Personality Analysis System*****
+Please answer the following questions on a scale of 1 to 5:
+Are you ready to give the answers of 8 questions
+yes/no
+> yes
+
+Are you thrilled to try new adventures and take bold risks? (1 = Not at all, 5 = Absolutely)
+> 4
+Do you love spotting tiny details that others often overlook? (1 = Nope, 5 = Totally)
+> 2
+Are you super in tune with others' feelings and emotions? (1 = Not really, 5 = Very much)
+> 3
+Do you get a kick out of planning every detail ahead of time? (1 = Never, 5 = Always)
+> 5
+Do you shine as the life of the party in social settings? (1 = Not at all, 5 = Always)
+> 4
+Are you a fan of cracking tough and tricky challenges? (1 = Not my thing, 5 = Love it)
+> 3
+Do you always put others' needs ahead of your own? (1 = Rarely, 5 = All the time)
+> 2
+Do you crave a neat, organized, and structured space? (1 = Not really, 5 = Definitely)
+> 5
+
+*****PERSONALITY REPORT
+******YOUR PERSONALITY TYPE: D
+STRENGTHS: Perfectly Organized, Rock-Solid Reliable, Wonderfully Practical!
+WEAKNESS: Loves Routine Too Much, A Tad Stubborn, Plays It Extra Safe
+-------------------------
+```
+
+### 🧠 Possible Personality Types
+
+| Type | Trait | Strengths | Weaknesses |
+|------|-------|-----------|------------|
+| **A** | Creative & Spontaneous | Sparklingly Creative, Bursting with Energy, Always Up for Fun! | A Bit Too Spontaneous, Super Dreamy, Scattered at Times |
+| **B** | Logical & Analytical | Brilliantly Sharp, Master of Logic, Amazingly Observant! | Sometimes Too Picky, Can't Pick a Side, Feels a Bit Distant |
+| **C** | Empathetic & Caring | Heartfelt and Caring, Full of Kindness, Your Biggest Cheerleader! | Feels Everything Deeply, Gives Too Much, Shy About Conflicts |
+| **D** | Organised & Reliable | Perfectly Organized, Rock-Solid Reliable, Wonderfully Practical! | Loves Routine Too Much, A Tad Stubborn, Plays It Extra Safe |
 
 ---
 
